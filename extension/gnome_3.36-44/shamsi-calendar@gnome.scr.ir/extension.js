@@ -7,6 +7,7 @@ const MainLoop = imports.mainloop;
 const Lang = imports.lang;
 const MessageTray = imports.ui.messageTray;
 const Shell = imports.gi.Shell;
+const PangoCairo = imports.gi.PangoCairo;
 // const Gettext = imports.gettext.domain('shamsi-calendar');
 // const _ = Gettext.gettext;
 const ExtensionUtils = imports.misc.extensionUtils;
@@ -26,6 +27,7 @@ const file = extension.imports.file;
 
 let _mainLable, _indicator, _timer, messageTray;
 let _prayTimeIs = '';
+let _fontsInstalledByUs = false;
 
 function _labelSchemaName(events1 = null) {
   let dateObj = new Tarikh.TarikhObject();
@@ -515,10 +517,35 @@ function enable() {
 
 function install_fonts() {
   let path = extension.dir.get_path();
-  let dst = Gio.file_new_for_path(`${path}/../../../fonts/shamsiCalendarFonts/`);
-  if (!dst.query_exists(null)) {
-    let src = Gio.file_new_for_path(`${path}/fonts`);
-    file.copyDir(src, dst);
+  _fontsInstalledByUs = false;
+
+  // Clean up the old non-standard font location if present.
+  let oldDir = Gio.file_new_for_path(`${path}/../../../fonts/shamsiCalendarFonts/`);
+  if (oldDir.query_exists(null))
+    file.deleteDir(oldDir);
+
+  // Use the system font when available; only install a per-user copy otherwise.
+  if (isFontAvailable('Vazirmatn'))
+    return;
+
+  let src = Gio.file_new_for_path(`${path}/fonts/Vazirmatn.ttf`);
+  if (!src.query_exists(null))
+    return;
+
+  let dir = Gio.file_new_for_path(`${GLib.get_home_dir()}/.fonts/shamsi-calendar/`);
+  if (!dir.query_exists(null))
+    dir.make_directory_with_parents(null);
+  src.copy(dir.get_child('Vazirmatn.ttf'), Gio.FileCopyFlags.NONE, null, null);
+  _fontsInstalledByUs = true;
+}
+
+function isFontAvailable(familyName) {
+  try {
+    let fontMap = PangoCairo.font_map_get_default();
+    let families = fontMap.list_families();
+    return families.some(f => f.get_name() === familyName);
+  } catch (e) {
+    return false;
   }
 }
 
@@ -541,9 +568,10 @@ function disable() {
 
 function uninstall_fonts() {
   let isLocked = (Main.sessionMode.currentMode === 'unlock-dialog');
-  let path = extension.dir.get_path();
-  let dir = Gio.file_new_for_path(`${path}/../../../fonts/shamsiCalendarFonts/`);
-  if (dir.query_exists(null) && !isLocked) {
+  if (isLocked || !_fontsInstalledByUs)
+    return;
+  let dir = Gio.file_new_for_path(`${GLib.get_home_dir()}/.fonts/shamsi-calendar/`);
+  if (dir.query_exists(null)) {
     file.deleteDir(dir);
   }
 }

@@ -3,6 +3,7 @@ import Clutter from 'gi://Clutter';
 import St from 'gi://St';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import PangoCairo from 'gi://PangoCairo';
 
 import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
@@ -562,10 +563,35 @@ export default class ShamsiCalendarExtension extends Extension {
   }
 
   install_fonts() {
-    let dst = Gio.file_new_for_path(`${GLib.get_home_dir()}/fonts/shamsiCalendarFonts/`);
-    if (!dst.query_exists(null)) {
-      let src = Gio.file_new_for_path(`${this.dir.get_path()}/fonts`);
-      file.copyDir(src, dst);
+    this._fontsInstalledByUs = false;
+
+    // Clean up the old non-standard font location (~/fonts/...) if present.
+    let oldDir = Gio.file_new_for_path(`${GLib.get_home_dir()}/fonts/shamsiCalendarFonts/`);
+    if (oldDir.query_exists(null))
+      file.deleteDir(oldDir);
+
+    // Use the system font when available; only install a per-user copy otherwise.
+    if (this.isFontAvailable('Vazirmatn'))
+      return;
+
+    let src = Gio.file_new_for_path(`${this.dir.get_path()}/fonts/Vazirmatn.ttf`);
+    if (!src.query_exists(null))
+      return;
+
+    let dir = Gio.file_new_for_path(`${GLib.get_home_dir()}/.fonts/shamsi-calendar/`);
+    if (!dir.query_exists(null))
+      dir.make_directory_with_parents(null);
+    src.copy(dir.get_child('Vazirmatn.ttf'), Gio.FileCopyFlags.NONE, null, null);
+    this._fontsInstalledByUs = true;
+  }
+
+  isFontAvailable(familyName) {
+    try {
+      let fontMap = PangoCairo.font_map_get_default();
+      let families = fontMap.list_families();
+      return families.some(f => f.get_name() === familyName);
+    } catch (e) {
+      return false;
     }
   }
 
@@ -593,10 +619,11 @@ export default class ShamsiCalendarExtension extends Extension {
 
   uninstall_fonts() {
     let isLocked = (Main.sessionMode.currentMode === 'unlock-dialog');
-    let dir = Gio.file_new_for_path(`${GLib.get_home_dir()}/fonts/shamsiCalendarFonts/`);
-    if (dir.query_exists(null) && !isLocked) {
+    if (isLocked || !this._fontsInstalledByUs)
+      return;
+    let dir = Gio.file_new_for_path(`${GLib.get_home_dir()}/.fonts/shamsi-calendar/`);
+    if (dir.query_exists(null))
       file.deleteDir(dir);
-    }
   }
 
 }
