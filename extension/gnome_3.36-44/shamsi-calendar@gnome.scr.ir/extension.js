@@ -520,9 +520,13 @@ function install_fonts() {
   _fontsInstalledByUs = false;
 
   // Clean up the old non-standard font location if present.
-  let oldDir = Gio.file_new_for_path(`${path}/../../../fonts/shamsiCalendarFonts/`);
+  let oldDir = Gio.file_new_for_path(`${GLib.get_home_dir()}/fonts/shamsiCalendarFonts/`);
   if (oldDir.query_exists(null))
     file.deleteDir(oldDir);
+  // Also remove the deprecated ~/.fonts copy from earlier versions.
+  let oldDir2 = Gio.file_new_for_path(`${GLib.get_home_dir()}/.fonts/shamsi-calendar/`);
+  if (oldDir2.query_exists(null))
+    file.deleteDir(oldDir2);
 
   // Use the system font when available; only install a per-user copy otherwise.
   if (isFontAvailable('Vazirmatn'))
@@ -532,7 +536,7 @@ function install_fonts() {
   if (!src.query_exists(null))
     return;
 
-  let dir = Gio.file_new_for_path(`${GLib.get_home_dir()}/.fonts/shamsi-calendar/`);
+  let dir = Gio.file_new_for_path(`${GLib.get_home_dir()}/.local/share/fonts/shamsi-calendar/`);
   if (!dir.query_exists(null))
     dir.make_directory_with_parents(null);
   src.copy(dir.get_child('Vazirmatn.ttf'), Gio.FileCopyFlags.NONE, null, null);
@@ -570,7 +574,7 @@ function uninstall_fonts() {
   let isLocked = (Main.sessionMode.currentMode === 'unlock-dialog');
   if (isLocked || !_fontsInstalledByUs)
     return;
-  let dir = Gio.file_new_for_path(`${GLib.get_home_dir()}/.fonts/shamsi-calendar/`);
+  let dir = Gio.file_new_for_path(`${GLib.get_home_dir()}/.local/share/fonts/shamsi-calendar/`);
   if (dir.query_exists(null)) {
     file.deleteDir(dir);
   }

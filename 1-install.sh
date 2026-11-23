@@ -2,7 +2,7 @@
 
 uuid=shamsi-calendar@gnome.scr.ir
 
-extFontsDirName=shamsiCalendarFonts
+extFontsDirName=shamsi-calendar
 
 gnomeVersion=$( gnome-shell --version | sed -Ee 's/GNOME Shell (([0-9]{1,2}).([0-9]{1,2})*).*/\1/i;q' )
 
@@ -46,9 +46,14 @@ then
     mkdir -p $extDir && cp -r ./* $extDir
     
     ## Install Fonts:
-    extFontDir=$HOME/.local/share/fonts/$extFontsDirName/
-    rm -rf $extFontDir
-    mkdir -p $extFontDir && cp -r ./fonts/* $extFontDir
+    # GNOME 3.20-3.34 (shell-script era) uses ~/.fonts; 3.36+ uses the XDG path.
+    case "$dirName" in
+        gnome_3.20-3.22|gnome_3.24-3.26|gnome_3.28-3.34) fontsRoot=$HOME/.fonts ;;
+        *) fontsRoot=$HOME/.local/share/fonts ;;
+    esac
+    extFontDir=$fontsRoot/$extFontsDirName/
+    rm -rf $HOME/.fonts/$extFontsDirName $HOME/.local/share/fonts/$extFontsDirName $HOME/.local/share/fonts/shamsiCalendarFonts
+    if [ -d ./fonts ]; then mkdir -p $extFontDir && cp -r ./fonts/* $extFontDir; fi
     
     echo ""
     echo "Please restart gnome-shell:"
